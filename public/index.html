@@ -19,45 +19,117 @@
 </head>
 
 <body>
-	<h1>test1</h1>
-	
-	<div style="float:left; display:inline-block; border: 1px solid #000; width:15%; height:50%; margin: 10px; overflow:auto;">
-		<h2>Users</h2>
-		<div id="userList"></div>
-	</div>
 
-	<div style="float:left; display:inline-block; border: 1px solid #f00; width:60%; height:50%; margin: 10px; position:relative;">
-		<div style="position:absolute; bottom:2px; left:40%;">
-			<div id="box"></div>
-			<div id="typingDiv" style="width:100%">
-				
-			</div>
-			<div>
-				<form>
-					<input type="text" autocomplete="off" id="m"/>
-					<button id="send">Send</button>
-				</form>
-				<button id="addName">Add</button>
-			</div>
+	<div id="login" >
+		<div style="width:25%; height:25%; margin: 0px auto; position:relative; top:40%;">
+			<h3 style="margin:0px">Choose a User Name</h3>
+			<form id="loginForm">
+				<input type="text" autocomplete="off" id="nameInput"/>
+				<br />
+				<button id="submitName">Go</button>
+			</form>
 		</div>
 	</div>
 
-	<div style="float:left; display:inline-block; border: 1px solid #0f0; width:15%; height:50%; margin: 10px;">
-		<h2>Rooms</h2>
-		<div id="roomList"></div>
+	<div id="content" hidden>
+		<h1>Chat Room</h1>
+		<div class="sidebox">
+			<h2 class="clearMargins"><u>Users</u></h2>
+			<div id="userList"></div>
+		</div>
+
+		<div class="mainbox">
+			<div style="width:99%; height:90%; margin:.5%; border: 1px solid grey; overflow:auto;">
+				<ul class="tab">
+					<li id="all-tab" class="tabElement">All</li>
+					<li id="none-tab" class="tabElement">None</li>
+				</ul>
+				<div id="box" class="chatBox"></div>
+				<div id="none-room" class="chatBox" style="display:none">Nothing Here...</div>
+			</div>
+			<div style="position:absolute; bottom:2px; width:98%; margin:.5%">
+				<div id="typingDiv" style="width:100%"></div>
+				<div>
+					<form id="chatForm">
+						<input type="text" autocomplete="off" id="m"/>
+						<button id="send">Send</button>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<div class="sidebox disabledDiv">
+			<h2 class="clearMargins"><u>Rooms</u></h2>
+			<div id="roomList"></div>
+		</div>
+
 	</div>
 
 	<script>
-		var tdiv = document.getElementById('box');
+
+		/*
+		
+		MOVE TO SEPARATE FILE AT THE END
+
+		*/
+
+		var messageBox = document.getElementById('box');
 		var udiv = document.getElementById('userList');
 		var typingDiv = document.getElementById('typingDiv');
 
+
 		var button = document.getElementById('send');
+		var loginForm = document.getElementById('loginForm');
+		var chatForm = document.getElementById('chatForm');
 		var addname = document.getElementById('addName');
 
 		var msg = document.getElementById('m');
 		var socket = io();
 
+		// Temp tabs stuff
+		document.getElementById('all-tab').onclick = function() {
+			// Get active room and set display to none. None-room is a room after creation... somehow.
+			document.getElementById('none-room').style.display = "none";
+
+			document.getElementById('box').style.display = "block";
+		}
+
+		document.getElementById('none-tab').onclick = function() {
+			// Get active room and set display to none
+			document.getElementById('box').style.display = "none";
+
+			document.getElementById('none-room').style.display = "block";
+		}
+
+		// Log the user in with a user name
+		loginForm.onsubmit = function(e) {
+			let name = document.getElementById('nameInput');
+			if (name.value == "") 
+				return false;
+
+			document.getElementById('login').hidden = true;
+			document.getElementById('content').hidden = false;
+
+			// Emit events of new user
+			socket.emit('add user', name.value);
+			name.value = '';
+
+			e.preventDefault();
+		}
+
+		// Send the user's message to everyone else
+		chatForm.onsubmit = function(e) {
+			if (msg.value == "") 
+				return false;
+
+			socket.emit('chat message', msg.value);
+			msg.value = '';
+			socket.emit('user stopped typing');
+
+			e.preventDefault();
+		}
+
+		// Display if the user is typing or not to everyone else
 		msg.oninput = function(e) {
 			if(e.target.value == "")
 				socket.emit('user stopped typing');
@@ -65,17 +137,7 @@
 				socket.emit('user typing');
 		};
 
-		addname.onclick = function(e) {
-			socket.emit('add user', msg.value);
-			msg.value = '';
-		};
-
-		button.onclick = function(e) {
-			console.log(socket);
-			socket.emit('chat message', msg.value);
-			msg.value = '';
-		};
-
+		// Remove "X is typing..." from YOUR screen.
 		function removeTyping(userName) {
 			var typingText = document.getElementById(userName + "_typing");
 			if (typingText != null) {
@@ -83,12 +145,14 @@
 			}
 		}
 
+		// On recieving a new chat message display it.
 		socket.on('chat message', function(msg, user) {
 			var newText = document.createElement('p');
 			newText.innerHTML = user + ": " + msg;
-			tdiv.appendChild(newText);
+			messageBox.appendChild(newText);
 		});
 
+		// On a new user joining, add them to the users list
 		socket.on('get users', function(users) {
 			console.log(users);
 			udiv.innerHTML = "";
@@ -99,6 +163,7 @@
 			}
 		});
 
+		// Display if a user is typing or not.
 		socket.on('user typing', function(user) {
 			removeTyping(user.name);
 			var newDiv = document.createElement("div");
