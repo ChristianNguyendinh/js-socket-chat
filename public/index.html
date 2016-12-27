@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Test</title>
+	<link rel="stylesheet" href="./base.css" type="text/css" />
+	<script src="/socket.io/socket.io.js"></script>
+	<script>
+		/* JQUERY
+		$(document).ready(function() {
+			var socket = io();
+			$('#send').click(function() {
+				socket.emit('chat message', $('#m').val());
+				$('#m').val('');
+				return false;
+			});
+		});	*/
+	</script>
+</head>
+
+<body>
+	<h1>test1</h1>
+	
+	<div style="float:left; display:inline-block; border: 1px solid #000; width:15%; height:50%; margin: 10px; overflow:auto;">
+		<h2>Users</h2>
+		<div id="userList"></div>
+	</div>
+
+	<div style="float:left; display:inline-block; border: 1px solid #f00; width:60%; height:50%; margin: 10px; position:relative;">
+		<div style="position:absolute; bottom:2px; left:40%;">
+			<div id="box"></div>
+			<div id="typingDiv" style="width:100%">
+				
+			</div>
+			<div>
+				<form>
+					<input type="text" autocomplete="off" id="m"/>
+					<button id="send">Send</button>
+				</form>
+				<button id="addName">Add</button>
+			</div>
+		</div>
+	</div>
+
+	<div style="float:left; display:inline-block; border: 1px solid #0f0; width:15%; height:50%; margin: 10px;">
+		<h2>Rooms</h2>
+		<div id="roomList"></div>
+	</div>
+
+	<script>
+		var tdiv = document.getElementById('box');
+		var udiv = document.getElementById('userList');
+		var typingDiv = document.getElementById('typingDiv');
+
+		var button = document.getElementById('send');
+		var addname = document.getElementById('addName');
+
+		var msg = document.getElementById('m');
+		var socket = io();
+
+		msg.oninput = function(e) {
+			if(e.target.value == "")
+				socket.emit('user stopped typing');
+			else
+				socket.emit('user typing');
+		};
+
+		addname.onclick = function(e) {
+			socket.emit('add user', msg.value);
+			msg.value = '';
+		};
+
+		button.onclick = function(e) {
+			console.log(socket);
+			socket.emit('chat message', msg.value);
+			msg.value = '';
+		};
+
+		function removeTyping(userName) {
+			var typingText = document.getElementById(userName + "_typing");
+			if (typingText != null) {
+				typingDiv.removeChild(typingText);
+			}
+		}
+
+		socket.on('chat message', function(msg, user) {
+			var newText = document.createElement('p');
+			newText.innerHTML = user + ": " + msg;
+			tdiv.appendChild(newText);
+		});
+
+		socket.on('get users', function(users) {
+			console.log(users);
+			udiv.innerHTML = "";
+			for (var id in users) {
+				var user = document.createElement('p');
+				user.innerHTML = users[id].name;
+				udiv.appendChild(user);
+			}
+		});
+
+		socket.on('user typing', function(user) {
+			removeTyping(user.name);
+			var newDiv = document.createElement("div");
+			newDiv.innerHTML = (user.name || "Unknown") + " is typing..."
+			newDiv.style.display = "inline-block";
+			newDiv.id = (user.name || "Unknown") + "_typing"
+			typingDiv.appendChild(newDiv);
+		});
+
+		socket.on('user stopped typing', function(user) {
+			removeTyping(user.name);
+		});		
+
+	</script>
+</body>
+
+</html>
