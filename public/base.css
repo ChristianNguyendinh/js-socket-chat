@@ -55,7 +55,7 @@ html, body {
 	margin: 4px;
 }
 
-.tab {
+#tab {
 	margin: 0px;
 	padding: 0px;
 	overflow: auto;

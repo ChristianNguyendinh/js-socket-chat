@@ -10,7 +10,9 @@ var path = require('path');
 // Every socket id maps to an object, currently only having a name property
 var users = {};
 // Suppose to be alist of rooms, not implemented yet.
-var rooms = {};
+var rooms = {All: {name: "All"},
+			None: {name: "None"},
+			test: {name: "test"}};
 
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -23,15 +25,46 @@ app.get('/', function(req, res) {
 
 io.on('connection', function(socket) {
 
+	socket.on('chat room message', function(msgInfo) {
+		console.log(socket.userName + " - message: " + msgInfo.msg + " in room: " + msgInfo.room);
+		// validate room here? make sure user is in the room?
+		io.in(msgInfo.room).emit('chat room message', {msg: msgInfo.msg, user: (socket.userName || "Unknown"), room: msgInfo.room});
+	});
+
+	socket.on('request join room', function(room) {
+		user = socket.userName || "Unknown";
+		// Check that the room exists and if user already in the room
+		socket.join(rooms[room].name);
+		// maybe append to list of users here?
+		console.log(user + " joining " + rooms[room].name);
+		// io.in(room).emit(user joinging or whatever)
+		// use create room because created room will add to the list on client side
+		socket.emit('created room', room);
+	});
+
+	socket.on('create room', function(room) {
+		rooms[room] = {name: room};
+		// Check if room exists
+		console.log(room + " room created.");
+		socket.emit('created room', room);
+		socket.emit('refresh rooms', rooms);
+	});
+
+	socket.on('refresh rooms', function() {
+		socket.emit('refresh rooms', rooms);
+	});
+	
+
+
 	// If user sent a chat message, broadcast it to everyone
-	socket.on('chat message', function(msg, user){
+	socket.on('chat message', function(msg) {
 		console.log((socket.userName || "Unknown")+ ' - message: ' + msg);
 		//socket.broadcast.emit('chat message', msg);
 		io.emit('chat message', msg, (socket.userName || "Unknown"));
 	});
 
 	// Add the new user to the users object, broadcast to everyone that a new user has joined
-	socket.on('add user', function(name){
+	socket.on('add user', function(name) {
 		user = name || "Empty Name";
 		socket.userName = user;
 		users[socket.id] = {name: user};
@@ -40,6 +73,10 @@ io.on('connection', function(socket) {
 		// refresh everyone's list of online users
 		console.log("refreshing users");
 		io.emit('get users', users);
+
+		// Join the default chat room
+		socket.join(rooms['None'].name);
+		console.log(user + " joining " + rooms['None'].name);
 	});
 
 	// If a user is typing, display on everyone ELSES' screen that they are typing

@@ -39,13 +39,13 @@
 		</div>
 
 		<div class="mainbox">
-			<div style="width:99%; height:90%; margin:.5%; border: 1px solid grey; overflow:auto;">
-				<ul class="tab">
-					<li id="all-tab" class="tabElement">All</li>
-					<li id="none-tab" class="tabElement">None</li>
+			<div id="display" style="width:99%; height:90%; margin:.5%; border: 1px solid grey; overflow:auto;">
+				<ul id="tab">
+					<li id="All-tab" class="tabElement">All</li>
+					<li id="None-tab" class="tabElement">None</li>
 				</ul>
-				<div id="box" class="chatBox"></div>
-				<div id="none-room" class="chatBox" style="display:none">Nothing Here...</div>
+				<div id="All-room" class="chatBox"></div>
+				<div id="None-room" class="chatBox" style="display:none">Nothing Here...</div>
 			</div>
 			<div style="position:absolute; bottom:2px; width:98%; margin:.5%">
 				<div id="typingDiv" style="width:100%"></div>
@@ -54,12 +54,14 @@
 						<input type="text" autocomplete="off" id="m"/>
 						<button id="send">Send</button>
 					</form>
+					<button id="chat_room">Room</button>
 				</div>
 			</div>
 		</div>
 
 		<div class="sidebox disabledDiv">
 			<h2 class="clearMargins"><u>Rooms</u></h2>
+			<button id="refreshRooms">Refresh</button>
 			<div id="roomList"></div>
 		</div>
 
@@ -73,32 +75,51 @@
 
 		*/
 
-		var messageBox = document.getElementById('box');
+		var messageBox = document.getElementById('All-room');
 		var udiv = document.getElementById('userList');
+		var rdiv = document.getElementById('roomList');
 		var typingDiv = document.getElementById('typingDiv');
+		var displayDiv = document.getElementById('display');
+		var tabList = document.getElementById('tab');
 
 
-		var button = document.getElementById('send');
+		var button = document.getElementById('chat_room');
+		var refreshRooms = document.getElementById('refreshRooms')
 		var loginForm = document.getElementById('loginForm');
 		var chatForm = document.getElementById('chatForm');
 		var addname = document.getElementById('addName');
 
 		var msg = document.getElementById('m');
+
+		var activeRoom = "All-room"
 		var socket = io();
 
-		// Temp tabs stuff
-		document.getElementById('all-tab').onclick = function() {
-			// Get active room and set display to none. None-room is a room after creation... somehow.
-			document.getElementById('none-room').style.display = "none";
-
-			document.getElementById('box').style.display = "block";
+		button.onclick = function(e) {
+			if (msg.value == "") 
+				return false;
+			/*
+			var room = "none"
+			socket.emit('chat room message', {msg: msg.value, room: room});
+			msg.value = '';
+			socket.emit('user stopped typing');
+			*/
+			socket.emit('create room', msg.value);
+			e.preventDefault();
 		}
 
-		document.getElementById('none-tab').onclick = function() {
-			// Get active room and set display to none
-			document.getElementById('box').style.display = "none";
+		refreshRooms.onclick = function(e) {
+			socket.emit('refresh rooms')
+		}
 
-			document.getElementById('none-room').style.display = "block";
+		// Temp tabs stuff
+		document.getElementById('All-tab').onclick = function(e) {
+			// Get active room and set display to none. None-room is a room after creation... somehow.
+			joinRoom(e.target.id.split("-")[0]);
+		}
+
+		document.getElementById('None-tab').onclick = function(e) {
+			// Get active room and set display to none
+			joinRoom(e.target.id.split("-")[0]);
 		}
 
 		// Log the user in with a user name
@@ -121,8 +142,13 @@
 		chatForm.onsubmit = function(e) {
 			if (msg.value == "") 
 				return false;
-
+			/*
 			socket.emit('chat message', msg.value);
+			msg.value = '';
+			socket.emit('user stopped typing');
+			*/
+
+			socket.emit('chat room message', {msg: msg.value, room: activeRoom.split("-")[0]});
 			msg.value = '';
 			socket.emit('user stopped typing');
 
@@ -152,9 +178,83 @@
 			messageBox.appendChild(newText);
 		});
 
+
+
+
+
+		socket.on('chat room message', function(msgInfo) {
+			console.log(msgInfo.room + "-room");
+			var mBox = document.getElementById(msgInfo.room + "-room");
+			var newText = document.createElement('p');
+			newText.innerHTML = msgInfo.user + ": " + msgInfo.msg;
+			mBox.appendChild(newText);
+		});
+
+		var joinRoom = function(room) {
+			var newRoom = document.getElementById(room + "-room");
+			var chatRoomList = document.getElementsByClassName("chatBox");
+			for (let room of chatRoomList) {
+				room.style.display = "none";
+			}
+			newRoom.style.display = "block";
+			activeRoom = room + "-room";
+		}
+
+		socket.on('created room', function(room) {
+			let newRoom;
+			if (document.getElementById(room + '-room') == null) {
+				newRoom = document.createElement('div');
+				newRoom.id = room + "-room";
+				newRoom.className = "chatBox"
+				displayDiv.appendChild(newRoom);
+
+				var newTab = document.createElement('li');
+				newTab.id = room + "-tab";
+				newTab.className = "tabElement";
+				newTab.innerHTML = room;
+				tabList.appendChild(newTab);
+				newTab.onclick = function(e) {
+					joinRoom(e.target.id.split("-")[0]);
+				};
+			}
+
+			newRoom = document.getElementById(room + '-room');
+			activeRoom = room + '-room';
+			var chatRoomList = document.getElementsByClassName("chatBox");
+			for (let room of chatRoomList) {
+				room.style.display = "none";
+			}
+			newRoom.style.display = "block";
+		});
+
+		socket.on('refresh rooms', function(rooms) {
+			console.log(rooms);
+			rdiv.innerHTML = "";
+			for (let room in rooms) {
+				let div = document.createElement('div');
+				let name = document.createElement('p');
+				let button = document.createElement('button');
+				name.innerHTML = rooms[room].name;
+				name.style.display = "inline-block";
+				button.innerHTML = "join";
+				button.id = room + "-join"
+				button.onclick = function(e) {
+					socket.emit('request join room', e.target.id.split("-")[0]);
+				}
+				div.appendChild(name);
+				div.appendChild(button);
+				rdiv.appendChild(div);
+			}
+		});
+
+
+
+
+
+
+
 		// On a new user joining, add them to the users list
 		socket.on('get users', function(users) {
-			console.log(users);
 			udiv.innerHTML = "";
 			for (var id in users) {
 				var user = document.createElement('p');
