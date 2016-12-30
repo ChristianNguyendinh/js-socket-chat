@@ -3,14 +3,16 @@ TODO:
 implement chat ROOMS. user list will have tab similar to current. display users in each room there. join button next to each room?  
   
 Real TODOS:  
-Display users in room  
-Perform default actions after user joins 
 Option to Create Room   
-Display user joined in room they joined    
-Have typing only displayed if user currently in that room. Maybe change to show up on the box...  
-Make sure changing tabs isn't doing more than it needs to. Same with join button  
---------  
+hightlight tab of currently active room 
+option to leave rooms   
+  
+maybe a join method for server side, same code used in join, create and add server  
+convert var to let for some variables  
+comment  
+remove console.logs  
 
-convert var to let for some variables
-have room tab blink or something when joining  
-option to leave rooms
+--------  
+  
+have room tab blink or something when a user talks or joins, have it go away when switch to room  
+timestamps for messages
