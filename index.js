@@ -50,12 +50,18 @@ io.on('connection', function(socket) {
 	});
 
 	socket.on('create room', function(room) {
-		rooms[room] = {name: room};
-		// Check if room exists
-		// NEED TO ALSO HAVE USER JOIN ON CREATION
+		if (rooms.hasOwnProperty(room))
+			return false;
+
+		rooms[room] = {name: room, users: {}};
 		console.log(room + " room created.");
+		// Have user join the room
+		rooms[room].users[socket.id] = {name: user};
+		socket.join(rooms[room].name);
+		// Refresh everyone's room list to have the new room
+		io.emit('refresh rooms', rooms);
 		socket.emit('created room', room);
-		socket.emit('refresh rooms', rooms);
+		socket.emit('get room users', rooms[room].users, room);
 	});
 
 	socket.on('refresh rooms', function() {
@@ -91,6 +97,13 @@ io.on('connection', function(socket) {
 
 	socket.on('user stopped typing', function(room) {
 		socket.broadcast.to(room).emit('user stopped typing', users[socket.id]);
+	});
+
+	socket.on('leave room', function(room) {
+		delete rooms[room].users[socket.id];
+		io.in(room).emit('get room users', rooms[room].users, rooms[room].name);
+		io.in(room).emit('chat room message', {msg: users[socket.id].name + " has left the room", user: "SYSTEM", room: room});
+		socket.emit("left room", room);
 	});
 
 	// On user disconnect, remove them from the users object, broadcast to everyone that they

@@ -31,6 +31,18 @@
 		</div>
 	</div>
 
+	<div id="roomModal" class="modal">
+		<div class="modalContent">
+			<form id="roomForm">
+				Enter a room name:
+				<br />
+				<input type="text" autocomplete="off" id="rName"/>
+				<br />
+				<button id="submitRoom">Create</button>
+			</form>
+		</div>
+	</div>
+
 	<div id="content" hidden>
 		<h1>Chat Room</h1>
 		<div class="sidebox">
@@ -56,7 +68,10 @@
 
 		<div class="sidebox disabledDiv">
 			<h2 class="clearMargins"><u>Rooms</u></h2>
-			<button id="refreshRooms">Refresh</button>
+			<div>
+				<button id="refreshRooms">Refresh</button>
+				<button id="createRoom">Create</button>
+			</div>
 			<div id="roomList"></div>
 		</div>
 
@@ -76,15 +91,18 @@
 		var typingDiv = document.getElementById('typingDiv');
 		var displayDiv = document.getElementById('display');
 		var tabList = document.getElementById('tab');
+		var modal = document.getElementById('roomModal');
 
 
 		var button = document.getElementById('chat_room');
-		var refreshRooms = document.getElementById('refreshRooms')
+		var refreshRooms = document.getElementById('refreshRooms');
+		var createRoom = document.getElementById('createRoom');
 		var loginForm = document.getElementById('loginForm');
 		var chatForm = document.getElementById('chatForm');
 		var addname = document.getElementById('addName');
 
 		var msg = document.getElementById('m');
+		var rn = document.getElementById('rName');
 
 		var socket = io();
 		// Whether the socket is currently typing something
@@ -93,17 +111,14 @@
 		// Currently selected chat room
 		var activeRoom = "All-room";
 
-		button.onclick = function(e) {
-			if (msg.value == "") 
-				return false;
-			/*
-			var room = "none"
-			socket.emit('chat room message', {msg: msg.value, room: room});
-			msg.value = '';
-			socket.emit('user stopped typing');
-			*/
-			socket.emit('create room', msg.value);
-			e.preventDefault();
+		window.onclick = function(e) {
+			if (e.target == modal)
+				modal.style.display = "none";
+		}
+
+		createRoom.onclick = function(e) {
+			// Display the modal with the room create form
+			modal.style.display = "block"
 		}
 
 		refreshRooms.onclick = function(e) {
@@ -139,6 +154,17 @@
 			e.preventDefault();
 		}
 
+		roomForm.onsubmit = function(e) {
+			if (rn.value == "") 
+				return false;
+
+			socket.emit('create room', rn.value);
+			rn.value = '';
+			modal.style.display = "none";
+
+			e.preventDefault();
+		}
+
 		// Display if the user is typing or not to everyone else
 		msg.oninput = function(e) {
 			if(e.target.value == "") {
@@ -151,6 +177,10 @@
 			}
 		};
 
+
+// Socket Stuff --------------------------------------------------------
+
+		// Send a chat message to all other users in a room
 		socket.on('chat room message', function(msgInfo) {
 			console.log(msgInfo.room + "-room");
 			var mBox = document.getElementById(msgInfo.room + "-room");
@@ -167,7 +197,11 @@
 				room.style.display = "none";
 			}
 			newRoom.style.display = "block";
+			
+			// Revert background color of old active room tab and update new one
+			document.getElementById(activeRoom.split("-")[0] + "-tab").style.backgroundColor = "#f9f9f9";
 			activeRoom = room + "-room";
+			document.getElementById(room + "-tab").style.backgroundColor = "#dee1e1";
 
 			let newUser = document.getElementById(room + "-users");
 			let userList = document.getElementsByClassName("userElement");
@@ -210,13 +244,25 @@
 				typing.id = room + "-typing";
 				typing.className = "typingElement";
 				typingDiv.appendChild(typing);
+
+				let join = document.getElementById(room + '-join');
+				join.innerHTML = "leave";
+				join.onclick = function(e) {
+					socket.emit('leave room', e.target.id.split("-")[0]);
+				}
 			}
 			// Switch to the room
+			console.log(room);
 			joinRoom(room);
 		});
 
 		socket.on('refresh rooms', function(rooms) {
 			console.log(rooms);
+			let listRooms = document.getElementsByClassName('tabElement');
+			let joinedRooms = [];
+			for (let i = 0; i < listRooms.length; i++) {
+				joinedRooms.push(listRooms[i].id.split("-")[0]);
+			}
 			rdiv.innerHTML = "";
 			for (let room in rooms) {
 				let div = document.createElement('div');
@@ -224,11 +270,23 @@
 				let button = document.createElement('button');
 				name.innerHTML = rooms[room].name;
 				name.style.display = "inline-block";
-				button.innerHTML = "join";
 				button.id = room + "-join"
-				button.onclick = function(e) {
-					socket.emit('request join room', e.target.id.split("-")[0]);
+
+				// Functionality of the button changes whether user is currently in the room or not
+				let inRoom = joinedRooms.includes(room) ? true : false;
+				if (inRoom) {
+					button.innerHTML = "leave";
+					button.onclick = function(e) {
+						socket.emit('leave room', e.target.id.split("-")[0]);
+					}
+				} 
+				else {
+					button.innerHTML = "join";
+					button.onclick = function(e) {
+						socket.emit('request join room', e.target.id.split("-")[0]);
+					}
 				}
+
 				div.appendChild(name);
 				div.appendChild(button);
 				rdiv.appendChild(div);
@@ -271,7 +329,27 @@
 			// Theoretically, you can only be typing in on room at a time, so just remove 
 			// the div with the username id
 			removeTyping(user.name);
-		});		
+		});	
+
+		socket.on('left room', function(room) {
+			let newRoom = document.getElementById(room + "-room");
+			newRoom.parentNode.removeChild(newRoom);
+
+			let newTab = document.getElementById(room + "-tab");
+			newTab.parentNode.removeChild(newTab);
+
+			let uList = document.getElementById(room + "-users");
+			uList.parentNode.removeChild(uList);
+
+			let typing = document.getElementById(room + "-typing");
+			typing.parentNode.removeChild(typing);
+
+			let join = document.getElementById(room + '-join');
+			join.innerHTML = "join";
+			join.onclick = function(e) {
+				socket.emit('request join room', e.target.id.split("-")[0]);
+			}
+		});	
 
 	</script>
 </body>
