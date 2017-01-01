@@ -24,13 +24,13 @@ app.get('/', function(req, res) {
 }); */
 
 io.on('connection', function(socket) {
-
+	// Send a chat message to everyone in the specified room
 	socket.on('chat room message', function(msgInfo) {
 		console.log(socket.userName + " - message: " + msgInfo.msg + " in room: " + msgInfo.room);
 		// validate room here? make sure user is in the room?
 		io.in(msgInfo.room).emit('chat room message', {msg: msgInfo.msg, user: (socket.userName || "Unknown"), room: msgInfo.room});
 	});
-
+	// Ideally some validation would be done, but for now just have the user always be able to join
 	socket.on('request join room', function(room) {
 		user = socket.userName || "Unknown";
 		// Check that the room exists and if user already in the room
@@ -48,7 +48,7 @@ io.on('connection', function(socket) {
 		console.log("refreshing \'" + room + " Room\' users");
 		io.in(room).emit('get room users', rooms[room].users, room);
 	});
-
+	// Create the room and have the user join it
 	socket.on('create room', function(room) {
 		if (rooms.hasOwnProperty(room))
 			return false;
@@ -63,11 +63,12 @@ io.on('connection', function(socket) {
 		socket.emit('created room', room);
 		socket.emit('get room users', rooms[room].users, room);
 	});
-
+	// The reason this is here is because on the client side, it expects a socket event
+	// to refresh rooms, due to other triggers of refresh rooms besides this one. Otherwise,
+	// This could've just been all done client side
 	socket.on('refresh rooms', function() {
 		socket.emit('refresh rooms', rooms);
 	});
-
 	// Add the new user to the users object, broadcast to everyone that a new user has joined
 	socket.on('add user', function(name) {
 		user = name || "Empty Name";
@@ -89,23 +90,22 @@ io.on('connection', function(socket) {
 		console.log("refreshing \'All Room\' users");
 		io.in("All").emit('get room users', rooms['All'].users, "All");
 	});
-
 	// If a user is typing, display on everyone ELSES' screen that they are typing
 	socket.on('user typing', function(room) {
 		socket.broadcast.to(room).emit('user typing', users[socket.id], room);
 	});
-
+	// Remove <user> is typing... from the users in the rooms' screen
 	socket.on('user stopped typing', function(room) {
 		socket.broadcast.to(room).emit('user stopped typing', users[socket.id]);
 	});
-
+	// If a user leaves a room, remove them from the user list, refresh everyone in the rooms' user
+	// list, tell everyone in the room the user has left, and emit to the sender to trigger DOM cleanup
 	socket.on('leave room', function(room) {
 		delete rooms[room].users[socket.id];
 		io.in(room).emit('get room users', rooms[room].users, rooms[room].name);
 		io.in(room).emit('chat room message', {msg: users[socket.id].name + " has left the room", user: "SYSTEM", room: room});
 		socket.emit("left room", room);
 	});
-
 	// On user disconnect, remove them from the users object, broadcast to everyone that they
 	// left, remove any "X is typing..." text
 	socket.on('disconnect', function() {
@@ -123,7 +123,6 @@ io.on('connection', function(socket) {
 				io.in(r.name).emit('chat room message', {msg: name + " has disconnected", user: "SYSTEM", room: r.name});
 			}
 		}
-		
 		// remove message that user is typing
 		if (users[socket.id]) 
 			socket.broadcast.emit('user stopped typing', users[socket.id]);
