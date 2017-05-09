@@ -1,10 +1,13 @@
 ### Real TODOS:     
   
-maybe a join method for server side, same code used in join, create and add server    
+NOW  
+private messaging
+timestamps for messages  
+
 deal with duplicate names/rooms  
-deleting rooms? Maybe not  
 have room tab blink or something when a user talks or joins, have it go away when switch to room  
-timestamps for messages
+Maybe not :  
+deleting rooms  
 ... animation for user is typing... ?  
   
 --------    

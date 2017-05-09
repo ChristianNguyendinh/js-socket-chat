@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Test</title>
+	<link rel="stylesheet" href="./base.css" type="text/css" />
+	<script>
+		var socket = new WebSocket('wss://127.0.0.1:6969/');
+		socket.onopen = function() {
+		    socket.send('hello');
+		};
+		socket.onmessage = function(s) {
+		    alert('got reply ' + s);
+		};
+	</script>
+</head>
+
+<body>
+	<h1>ASDF</h1>
+</body>
+
+</html>

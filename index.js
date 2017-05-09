@@ -24,10 +24,10 @@ app.get('/', function(req, res) {
 }); */
 
 io.on('connection', function(socket) {
+	console.log("connected");
 	// Send a chat message to everyone in the specified room
 	socket.on('chat room message', function(msgInfo) {
 		console.log(socket.userName + " - message: " + msgInfo.msg + " in room: " + msgInfo.room);
-		// validate room here? make sure user is in the room?
 		io.in(msgInfo.room).emit('chat room message', {msg: msgInfo.msg, user: (socket.userName || "Unknown"), room: msgInfo.room});
 	});
 	// Ideally some validation would be done, but for now just have the user always be able to join
